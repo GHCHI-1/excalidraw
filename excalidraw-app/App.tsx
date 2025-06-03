@@ -135,6 +135,9 @@ import DebugCanvas, {
 import { AIComponents } from "./components/AI";
 import { ExcalidrawPlusIframeExport } from "./ExcalidrawPlusIframeExport";
 
+import RegisterLogin from "./components/RegisterLogin";
+import SubscriptionModal from "./components/SubscriptionModal";
+
 import "./index.scss";
 
 import type { CollabAPI } from "./collab/Collab";
@@ -160,17 +163,10 @@ declare global {
 
 let pwaEvent: BeforeInstallPromptEvent | null = null;
 
-// Adding a listener outside of the component as it may (?) need to be
-// subscribed early to catch the event.
-//
-// Also note that it will fire only if certain heuristics are met (user has
-// used the app for some time, etc.)
 window.addEventListener(
   "beforeinstallprompt",
   (event: BeforeInstallPromptEvent) => {
-    // prevent Chrome <= 67 from automatically showing the prompt
     event.preventDefault();
-    // cache for later use
     pwaEvent = event;
   },
 );
@@ -184,9 +180,7 @@ if (window.self !== window.top) {
     if (parentUrl.origin === currentUrl.origin) {
       isSelfEmbedding = true;
     }
-  } catch (error) {
-    // ignore
-  }
+  } catch (error) {}
 }
 
 const shareableLinkConfirmDialog = {
@@ -228,11 +222,8 @@ const initializeScene = async (opts: {
   const isExternalScene = !!(id || jsonBackendMatch || roomLinkData);
   if (isExternalScene) {
     if (
-      // don't prompt if scene is empty
       !scene.elements.length ||
-      // don't prompt for collab scenes because we don't override local storage
       roomLinkData ||
-      // otherwise, prompt whether user wants to override current scene
       (await openConfirmModal(shareableLinkConfirmDialog))
     ) {
       if (jsonBackendMatch) {
@@ -247,15 +238,12 @@ const initializeScene = async (opts: {
         window.history.replaceState({}, APP_NAME, window.location.origin);
       }
     } else {
-      // https://github.com/excalidraw/excalidraw/issues/1919
       if (document.hidden) {
         return new Promise((resolve, reject) => {
           window.addEventListener(
             "focus",
             () => initializeScene(opts).then(resolve).catch(reject),
-            {
-              once: true,
-            },
+            { once: true },
           );
         });
       }
@@ -294,9 +282,6 @@ const initializeScene = async (opts: {
     const scene = await opts.collabAPI.startCollaboration(roomLinkData);
 
     return {
-      // when collaborating, the state may have already been updated at this
-      // point (we may have received updates from other clients), so reconcile
-      // elements and appState with existing state
       scene: {
         ...scene,
         appState: {
@@ -307,8 +292,6 @@ const initializeScene = async (opts: {
             },
             excalidrawAPI.getAppState(),
           ),
-          // necessary if we're invoking from a hashchange handler which doesn't
-          // go through App.initializeScene() that resets this flag
           isLoading: false,
         },
         elements: reconcileElements(
@@ -342,8 +325,8 @@ const ExcalidrawWrapper = () => {
 
   const [langCode, setLangCode] = useAppLangCode();
 
-  // initial state
-  // ---------------------------------------------------------------------------
+  const [userId, setUserId] = useState(localStorage.getItem('user_id'));
+  const [token, setToken] = useState(localStorage.getItem('token'));
 
   const initialStatePromiseRef = useRef<{
     promise: ResolvablePromise<ExcalidrawInitialDataState | null>;
@@ -357,7 +340,6 @@ const ExcalidrawWrapper = () => {
 
   useEffect(() => {
     trackEvent("load", "frame", getFrame());
-    // Delayed so that the app has a time to load the latest SW
     setTimeout(() => {
       trackEvent("load", "version", getVersion());
     }, VERSION_TIMEOUT);
@@ -376,7 +358,6 @@ const ExcalidrawWrapper = () => {
   useHandleLibrary({
     excalidrawAPI,
     adapter: LibraryIndexedDBAdapter,
-    // TODO maybe remove this in several months (shipped: 24-03-11)
     migrationAdapter: LibraryLocalStorageMigrationAdapter,
   });
 
@@ -385,11 +366,8 @@ const ExcalidrawWrapper = () => {
   useEffect(() => {
     if (isDevEnv()) {
       const debugState = loadSavedDebugState();
-
       if (debugState.enabled && !window.visualDebug) {
-        window.visualDebug = {
-          data: [],
-        };
+        window.visualDebug = { data: [] };
       } else {
         delete window.visualDebug;
       }
@@ -462,15 +440,13 @@ const ExcalidrawWrapper = () => {
                 });
               });
           }
-          // on fresh load, clear unused files from IDB (from previous
-          // session)
           LocalData.fileStorage.clearObsoleteFiles({ currentFileIds: fileIds });
         }
       }
     };
 
     initializeScene({ collabAPI, excalidrawAPI }).then(async (data) => {
-      loadImages(data, /* isInitialLoad */ true);
+      loadImages(data, true);
       initialStatePromiseRef.current.promise.resolve(data.scene);
     });
 
@@ -512,7 +488,6 @@ const ExcalidrawWrapper = () => {
         !document.hidden &&
         ((collabAPI && !collabAPI.isCollaborating()) || isCollabDisabled)
       ) {
-        // don't sync if local state is newer or identical to browser state
         if (isBrowserStorageStateNewer(STORAGE_KEYS.VERSION_DATA_STATE)) {
           const localDataState = importFromLocalStorage();
           const username = importUsernameFromLocalStorage();
@@ -538,7 +513,6 @@ const ExcalidrawWrapper = () => {
             elements?.reduce((acc, element) => {
               if (
                 isInitializedImageElement(element) &&
-                // only load and update images that aren't already loaded
                 !currFiles[element.fileId]
               ) {
                 return acc.concat(element.fileId);
@@ -632,8 +606,6 @@ const ExcalidrawWrapper = () => {
       collabAPI.syncElements(elements);
     }
 
-    // this check is redundant, but since this is a hot path, it's best
-    // not to evaludate the nested expression every time
     if (!LocalData.isSavePaused()) {
       LocalData.save(elements, appState, files, () => {
         if (excalidrawAPI) {
@@ -664,7 +636,6 @@ const ExcalidrawWrapper = () => {
       });
     }
 
-    // Render the debug scene if the debug canvas is available
     if (debugCanvasRef.current && excalidrawAPI) {
       debugRenderer(
         debugCanvasRef.current,
@@ -739,9 +710,21 @@ const ExcalidrawWrapper = () => {
     [setShareDialogState],
   );
 
-  // browsers generally prevent infinite self-embedding, there are
-  // cases where it still happens, and while we disallow self-embedding
-  // by not whitelisting our own origin, this serves as an additional guard
+  const handleLogin = (id: string, token: string) => {
+    setUserId(id);
+    setToken(token);
+  };
+
+  const handleAccessGranted = () => {
+    if (collabAPI) {
+      const roomId = Math.random().toString(36).substring(2, 12);
+      const roomKey = Math.random().toString(36).substring(2, 24);
+      collabAPI.startCollaboration({ roomId, roomKey }).then(() => {
+        window.location.href = `/#room=${roomId},${roomKey}`;
+      });
+    }
+  };
+
   if (isSelfEmbedding) {
     return (
       <div
@@ -804,6 +787,10 @@ const ExcalidrawWrapper = () => {
         "is-collaborating": isCollaborating,
       })}
     >
+      <div style={{ padding: '10px', display: 'flex', gap: '10px' }}>
+        <RegisterLogin onLogin={handleLogin} />
+        <SubscriptionModal userId={userId} token={token} onAccessGranted={handleAccessGranted} />
+      </div>
       <Excalidraw
         excalidrawAPI={excalidrawRefCallback}
         onChange={onChange}
@@ -878,6 +865,9 @@ const ExcalidrawWrapper = () => {
           theme={appTheme}
           setTheme={(theme) => setAppTheme(theme)}
           refresh={() => forceRefresh((prev) => !prev)}
+          userId={userId}
+          token={token}
+          onAccessGranted={handleAccessGranted}
         />
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
@@ -1080,17 +1070,16 @@ const ExcalidrawWrapper = () => {
                 window.open(
                   "https://youtube.com/@excalidraw",
                   "_blank",
-                  "noopener noreferrer",
                 );
               },
             },
             ...(isExcalidrawPlusSignedUser
               ? [
-                  {
-                    ...ExcalidrawPlusAppCommand,
-                    label: "Sign in / Go to Excalidraw+",
-                  },
-                ]
+                {
+                  ...ExcalidrawPlusAppCommand,
+                  label: "Sign in / Go to Excalidraw+",
+                },
+              ]
               : [ExcalidrawPlusCommand, ExcalidrawPlusAppCommand]),
 
             {
@@ -1126,8 +1115,6 @@ const ExcalidrawWrapper = () => {
                 if (pwaEvent) {
                   pwaEvent.prompt();
                   pwaEvent.userChoice.then(() => {
-                    // event cannot be reused, but we'll hopefully
-                    // grab new one as the event should be fired again
                     pwaEvent = null;
                   });
                 }
