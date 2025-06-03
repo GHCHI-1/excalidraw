@@ -19,7 +19,7 @@ const RegisterLogin = ({ onLogin }) => {
             onLogin(response.data.user_id, response.data.token);
             setError('');
         } catch (err) {
-            setError(`Failed to ${isRegister ? 'register' : 'log in'}. Try again.`);
+            setError(`Failed to ${isRegister ? 'register' : 'log in'}.`);
         }
     };
 
@@ -57,39 +57,19 @@ const RegisterLogin = ({ onLogin }) => {
             />
             <button
                 onClick={handleSubmit}
-                style={{
-                    padding: '10px',
-                    background: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                }}
+                style={{ padding: '10px', background: '#007bff', color: 'white', border: 'none', borderRadius: '5px' }}
             >
                 {isRegister ? 'Register' : 'Log In'}
             </button>
             <button
                 onClick={handleAnonymous}
-                style={{
-                    padding: '10px',
-                    background: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                }}
+                style={{ padding: '10px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '5px' }}
             >
                 Anonymous Account
             </button>
             <button
                 onClick={() => setIsRegister(!isRegister)}
-                style={{
-                    padding: '10px',
-                    background: 'transparent',
-                    color: '#007bff',
-                    border: 'none',
-                    cursor: 'pointer'
-                }}
+                style={{ padding: '10px', background: 'transparent', color: '#007bff', border: 'none' }}
             >
                 {isRegister ? 'Switch to Log In' : 'Switch to Register'}
             </button>
