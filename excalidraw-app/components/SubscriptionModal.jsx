@@ -68,14 +68,7 @@ const SubscriptionModal = ({ userId, token, onAccessGranted }) => {
         <div>
             <button
                 onClick={checkAccess}
-                style={{
-                    padding: '10px 20px',
-                    background: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                }}
+                style={{ padding: '10px 20px', background: '#28a745', color: 'white', border: 'none', borderRadius: '5px' }}
             >
                 Start Collaboration
             </button>
@@ -92,13 +85,7 @@ const SubscriptionModal = ({ userId, token, onAccessGranted }) => {
                     justifyContent: 'center',
                     zIndex: 1000
                 }}>
-                    <div style={{
-                        background: 'white',
-                        padding: '20px',
-                        borderRadius: '10px',
-                        maxWidth: '400px',
-                        textAlign: 'center'
-                    }}>
+                    <div style={{ background: 'white', padding: '20px', borderRadius: '10px', maxWidth: '400px', textAlign: 'center' }}>
                         <h2>Collaboration Access</h2>
                         <p>{message}</p>
                         {qrCode && (
@@ -110,14 +97,7 @@ const SubscriptionModal = ({ userId, token, onAccessGranted }) => {
                         )}
                         <button
                             onClick={() => setIsOpen(false)}
-                            style={{
-                                padding: '10px 20px',
-                                background: '#dc3545',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '5px',
-                                marginTop: '10px'
-                            }}
+                            style={{ padding: '10px 20px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', marginTop: '10px' }}
                         >
                             Close
                         </button>
